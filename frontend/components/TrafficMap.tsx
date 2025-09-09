@@ -17,9 +17,10 @@ interface TrafficSignal {
 // --- 2. Data for Your Traffic Signals ---
 // We declare that this array will contain objects matching the TrafficSignal interface.
 const trafficSignals: TrafficSignal[] = [
-  { id: 1, position: [19.0853, 72.9089], name: "Ghatkopar Station Signal" },
-  { id: 2, position: [19.0785, 72.9105], name: "LBS Marg Signal" },
-  { id: 3, position: [19.0866, 72.9145], name: "Hingwala Lane Signal" }
+  { id: 1, position: [19.059381,72.836801], name: "Shri Narayan Daji Salian Chowk Signal" }, 
+  { id: 2, position: [19.059360,72.834176], name: "Perry Road Signal" },       
+  { id: 3, position: [19.059541,72.829502], name: "Goverdhan Das O Kalantri Chowk Signal" }, 
+  { id: 4, position: [19.055200,72.830034], name: "St. Stanislaus Signal" }, 
 ];
 
 // --- 3. Custom Icon for the Traffic Signal ---
@@ -40,24 +41,22 @@ const trafficSignalIcon = new L.DivIcon({
 
 // Define the component using the React.FC (Functional Component) type
 const TrafficMap: React.FC = () => {
-  // The map will be centered on Ghatkopar, Mumbai.
-  // We explicitly type mapCenter with Leaflet's LatLngExpression type.
-  const mapCenter: LatLngExpression = [19.083, 72.912];
+  // The map is centered in a wider view that includes both Bandra and Khar.
+  const mapCenter: LatLngExpression = [19.059418, 72.836874];
 
-  // Define the boundaries for the map view.
-  // These are the South-West and North-East corners of the area you want to lock.
+  // The map bounds are expanded to show a larger area.
   const mapBounds: LatLngBoundsExpression = [
-    [19.070, 72.895], // Southwest corner
-    [19.095, 72.925]  // Northeast corner
+    [19.042575,72.819271], // Southwest corner (ensures southern signals are visible)
+    [19.067235,72.843627]  // Northeast corner (expanded north)
   ];
 
   return (
     <MapContainer 
       center={mapCenter} 
-      zoom={16} 
+      zoom={15} // Zoomed out slightly to fit the larger area
       style={{ height: '100%', width: '100%' }}
       maxBounds={mapBounds} // This locks the panning to the defined bounds
-      minZoom={15}          // This prevents zooming out too far
+      minZoom={14}          // This prevents zooming out too far
     >
       {/* --- The Map Background (Tile Layer) --- */}
       {/* This uses OpenStreetMap data, which is free and perfect for road layouts. */}
