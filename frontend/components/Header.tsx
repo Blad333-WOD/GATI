@@ -1,49 +1,50 @@
 'use client';
 
 import Link from 'next/link';
-// We might need useRouter for the logout functionality in the future
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePathname } from 'next/navigation'; // <-- We import a hook to read the current URL
 
 const Header: React.FC = () => {
-  const router = useRouter();
+  const { isLoggedIn, user, logout } = useAuth();
+  const pathname = usePathname(); // <-- This gets the current path, e.g., "/" or "/stats"
 
-  const handleLogout = () => {
-    // Clear login session
-    sessionStorage.removeItem('isLoggedIn');
-    // Optionally clear other data (e.g., localStorage.removeItem('policeId');)
-    // Redirect to login page
-    router.push('/login');
-  };
+  // --- THIS IS THE FIX ---
+  // The header will now hide itself if:
+  // 1. The user is not logged in (to hide it on the login page).
+  // 2. The user is on the "/stats" page (to prevent the double header).
+  if (!isLoggedIn || pathname === '/stats') {
+    return null;
+  }
 
+  // If neither of the above is true, we show the beautiful floating header.
   return (
-    <header className="w-full bg-white shadow-md z-10 relative">
-      <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
-        {/* Project Name "GATI" */}
-        <div className="text-2xl font-bold text-gray-800">
-          <Link href="/" className="hover:text-blue-600 transition-colors duration-200">
-            GATI
+    <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+      <nav className="flex items-center gap-x-6 bg-white/80 backdrop-blur-md shadow-lg rounded-full border border-gray-200/80 px-6 py-3">
+        {/* GATI Logo and Name */}
+        <Link href="/" className="flex items-center gap-x-2 text-lg font-bold text-gray-800 hover:text-blue-600 transition-colors">
+          <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 1.085-1.085-1.085m1.085 1.085L9 17.585l-1.085-1.085m1.085 1.085L9 17.585m0 0l-1.085 1.085m1.085-1.085L9 17.585m2.25-1.5h3.375m-3.375 0h-7.5m7.5 0h-3.375" />
+          </svg>
+          GATI
+        </Link>
+        
+        <div className="h-6 w-px bg-gray-300"></div>
+
+        <div className="flex items-center gap-x-6">
+          <span className="text-sm text-gray-600">
+            Welcome, <span className="font-semibold">{user?.policeId}</span>
+          </span>
+          <Link href="/stats" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+            Dashboard
           </Link>
         </div>
 
-        <div className="flex items-center space-x-6">
-          {/* Route to "Statistics" */}
-          <Link href="/stats" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium">
-            Statistics
-          </Link>
-          
-          {/* A better Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-red-100 text-gray-700 hover:text-red-600 font-semibold py-2 px-4 rounded-lg shadow-sm border border-gray-300 transition-all duration-200 ease-in-out transform hover:-translate-y-px"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={logout}
+          className="ml-4 flex items-center gap-2 bg-gray-100 hover:bg-red-100 text-gray-700 hover:text-red-600 font-semibold py-2 px-4 rounded-full shadow-sm border border-gray-300 transition-all text-sm"
+        >
+          Logout
+        </button>
       </nav>
     </header>
   );

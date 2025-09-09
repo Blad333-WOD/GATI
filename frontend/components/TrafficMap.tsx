@@ -20,10 +20,10 @@ interface TrafficSignal {
 // --- 2. Data for Your Traffic Signals ---
 // We declare that this array will contain objects matching the TrafficSignal interface.
 const trafficSignals: TrafficSignal[] = [
-  { id: 1, position: [19.059381, 72.836801], name: "Shri Narayan Daji Salian Chowk Signal", videoUrl: "/narayan-chowk-sim.mp4" }, 
-  { id: 2, position: [19.059360, 72.834176], name: "Perry Road Signal", videoUrl: "/narayan-chowk-sim.mp4" },       
-  { id: 3, position: [19.059541, 72.829502], name: "Goverdhan Das O Kalantri Chowk Signal", videoUrl: "/narayan-chowk-sim.mp4" }, 
-  { id: 4, position: [19.055200, 72.830034], name: "St. Stanislaus Signal", videoUrl: "/narayan-chowk-sim.mp4" }, 
+  { id: 1, position: [19.059381, 72.836801], name: "Shri Narayan Daji Salian Chowk Signal", videoUrl: "narayan-chowk-sim.mp4" }, 
+  { id: 2, position: [19.059360, 72.834176], name: "Perry Road Signal", videoUrl: "perry-road-sim.mp4" },       
+  { id: 3, position: [19.059541, 72.829502], name: "Goverdhan Das O Kalantri Chowk Signal", videoUrl: "goverdhan-das-sim.mp4" }, 
+  { id: 4, position: [19.055200, 72.830034], name: "St. Stanislaus Signal", videoUrl: "st-stanislaus-sim.mp4" }, 
 ];
 
 // --- 3. Custom Icon for the Traffic Signal ---
