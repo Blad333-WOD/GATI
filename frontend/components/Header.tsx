@@ -2,17 +2,17 @@
 
 import Link from 'next/link';
 // We might need useRouter for the logout functionality in the future
-// import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 const Header: React.FC = () => {
-  // const router = useRouter();
+  const router = useRouter();
 
   const handleLogout = () => {
-    // In a real application, you would handle the logout logic here.
-    // This could involve clearing authentication tokens, calling an API endpoint, etc.
-    console.log("User logged out");
-    // For now, we'll just log to the console. If you had a login page, you might do:
-    // router.push('/login');
+    // Clear login session
+    sessionStorage.removeItem('isLoggedIn');
+    // Optionally clear other data (e.g., localStorage.removeItem('policeId');)
+    // Redirect to login page
+    router.push('/login');
   };
 
   return (

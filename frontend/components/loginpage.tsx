@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function LoginPage() {
+export default function LoginPage({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
   const [policeId, setPoliceId] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -59,9 +59,11 @@ export default function LoginPage() {
         }
         
         sessionStorage.setItem('isLoggedIn', 'true');
-        
-        // Redirect to main page (/) instead of /dashboard
-        router.push('/');
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        } else {
+          router.push('/');
+        }
       } else {
         setLoginError('Invalid Police ID or password');
       }
