@@ -9,13 +9,10 @@ from collections import defaultdict
 import csv
 from datetime import datetime
 
-# Load the pretrained YOLOv8 model
 model = YOLO('yolov8s.pt')
 
-# Define vehicle classes to detect
 vehicle_classes = ['car', 'truck', 'bus', 'motorbike', 'bicycle']
 
-# Set the correct path to your video file
 video_path = r'4 Corners Camera.mp4'
 
 cap = cv2.VideoCapture(video_path)
@@ -37,43 +34,40 @@ print(f"Resolution: {width}x{height}")
 print(f"FPS: {fps}")
 print(f"Total frames: {total_frames}")
 
-# Define detection line - horizontal line across the intersection
+# Detection line
 def define_detection_line(width, height):
-    """Define the detection line where vehicles will be counted"""
-    # Horizontal line at approximately 1/3 from top (adjust as needed)
-    line_y = int(height * 0.32)  # Adjust this value based on your video
+    
+    line_y = int(height * 0.32)  
     return {
         'start': (0, line_y),
         'end': (width, line_y),
         'y_position': line_y,
-        'tolerance': 30  # Pixels tolerance for line crossing detection
+        'tolerance': 30  
     }
 
-# Define intersection zones for vehicles approaching the signal
+# intersection zones 
 def define_intersection_zones(width, height, detection_line):
-    """Define zones for vehicles approaching the intersection"""
     line_y = detection_line['y_position']
     
-    # Define approach lanes based on the detection line
     zones = {
         'Lane 1 (North-Left)': {
             'bounds': (0, 0, width * 0.3, line_y + 50),
-            'color': (255, 100, 100),  # Light Blue
+            'color': (255, 100, 100),  
             'direction': 'Southbound'
         },
         'Lane 2 (North-Center)': {
             'bounds': (width * 0.3, 0, width * 0.7, line_y + 50),
-            'color': (255, 255, 100),  # Light Yellow
+            'color': (255, 255, 100),  
             'direction': 'Southbound'
         },
         'Lane 3 (North-Right)': {
             'bounds': (width * 0.7, 0, width, line_y + 50),
-            'color': (100, 255, 100),  # Light Green
+            'color': (100, 255, 100), 
             'direction': 'Southbound'
         },
         'Lane 4 (Other)': {
             'bounds': (0, line_y + 50, width, height),
-            'color': (100, 100, 255),  # Light Red
+            'color': (100, 100, 255), 
             'direction': 'Various'
         }
     }
@@ -106,11 +100,10 @@ def get_vehicle_zone(center_x, center_y, zones):
     return 'Lane 4 (Other)'
 
 def draw_dashed_line(frame, start_point, end_point, color, thickness=1, dash_length=10):
-    """Draw a dashed line manually"""
+    
     x1, y1 = start_point
     x2, y2 = end_point
     
-    # Calculate line length and direction
     line_length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     if line_length == 0:
         return
@@ -119,14 +112,12 @@ def draw_dashed_line(frame, start_point, end_point, color, thickness=1, dash_len
     dx = (x2 - x1) / line_length
     dy = (y2 - y1) / line_length
     
-    # Draw dashed segments
     current_pos = 0
     while current_pos < line_length:
         # Start of dash
         start_x = int(x1 + dx * current_pos)
         start_y = int(y1 + dy * current_pos)
         
-        # End of dash (don't exceed line length)
         end_pos = min(current_pos + dash_length, line_length)
         end_x = int(x1 + dx * end_pos)
         end_y = int(y1 + dy * end_pos)
@@ -138,15 +129,15 @@ def draw_dashed_line(frame, start_point, end_point, color, thickness=1, dash_len
         current_pos += dash_length * 2
 
 def draw_detection_line(frame, detection_line, show_line=True):
-    """Draw the detection line"""
+    
     if show_line:
         start_point = detection_line['start']
         end_point = detection_line['end']
         
-        # Draw main detection line in purple
+        
         cv2.line(frame, start_point, end_point, (128, 0, 128), 4)
         
-        # Draw tolerance zone with dashed lines (manual implementation)
+        
         tolerance = detection_line['tolerance']
         line_y = detection_line['y_position']
         
@@ -158,7 +149,7 @@ def draw_detection_line(frame, detection_line, show_line=True):
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (128, 0, 128), 2)
 
 def draw_zone_boundaries(frame, zones, show_lines=False):
-    """Draw zone boundaries (optional)"""
+    
     if show_lines:
         for zone_name, zone_info in zones.items():
             x1, y1, x2, y2 = zone_info['bounds']
@@ -174,26 +165,22 @@ def draw_zone_boundaries(frame, zones, show_lines=False):
 
 def draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_totals, 
                            frame_count, total_frames, active_vehicles):
-    """Draw enhanced statistics with individual lane counts"""
     
-    # Main info bar at top
+    
     info_bg = np.zeros((80, frame.shape[1], 3), dtype=np.uint8)
-    info_bg[:] = (0, 0, 0)  # Black background
+    info_bg[:] = (0, 0, 0)  
     
     # Frame info
     frame_text = f"Frame: {frame_count:,}/{total_frames:,} | Active Vehicles: {active_vehicles}"
     cv2.putText(info_bg, frame_text, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
     
-    # Total vehicles
     total_all = sum(total_vehicle_count.values())
     total_text = f"Total Detected: {total_all}"
     cv2.putText(info_bg, total_text, (10, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
     
-    # Lane counts in a single row
     lane_text = f"Lane 1: {lane_totals['Lane 1 (North-Left)']} | Lane 2: {lane_totals['Lane 2 (North-Center)']} | Lane 3: {lane_totals['Lane 3 (North-Right)']} | Other: {lane_totals['Lane 4 (Other)']}"
     cv2.putText(info_bg, lane_text, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 1)
     
-    # Blend with main frame
     frame[0:80] = cv2.addWeighted(frame[0:80], 0.7, info_bg, 0.3, 0)
     
     # Compact statistics panel (right side)
@@ -202,7 +189,7 @@ def draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_total
     start_x = frame.shape[1] - panel_width - 10
     start_y = 90
     
-    # Semi-transparent background
+    
     overlay = frame.copy()
     cv2.rectangle(overlay, (start_x, start_y), 
                  (start_x + panel_width, start_y + panel_height), (0, 0, 0), -1)
@@ -210,11 +197,11 @@ def draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_total
                  (start_x + panel_width, start_y + panel_height), (255, 255, 255), 2)
     frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
     
-    # Statistics header
+    
     cv2.putText(frame, "Lane Details", (start_x + 10, start_y + 20), 
                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
     
-    # Lane statistics
+    
     y_pos = start_y + 40
     for zone_name, zone_info in zones.items():
         zone_total = sum(zone_counts[zone_name].values())
@@ -238,7 +225,7 @@ def draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_total
             y_pos += 16
 
 def track_vehicles_with_line_crossing(detections, frame_count):
-    """Enhanced vehicle tracking with line crossing detection"""
+    
     global next_vehicle_id, tracked_vehicles
     
     current_vehicles = {}
@@ -262,21 +249,21 @@ def track_vehicles_with_line_crossing(detections, frame_count):
                 closest_id = vehicle_id
         
         if closest_id is not None:
-            # Update existing vehicle
+            
             prev_y = tracked_vehicles[closest_id]['y']
             tracked_vehicles[closest_id].update({
                 'x': center_x, 'y': center_y, 'last_seen': frame_count,
                 'class': class_name, 'zone': get_vehicle_zone(center_x, center_y, zones)
             })
             
-            # Check for line crossing
+            
             if not tracked_vehicles[closest_id].get('counted', False):
                 if has_crossed_line(prev_y, center_y, line_y, tolerance):
                     tracked_vehicles[closest_id]['line_crossed'] = True
                     
             current_vehicles[closest_id] = tracked_vehicles[closest_id]
         else:
-            # New vehicle
+            
             vehicle_id = next_vehicle_id
             next_vehicle_id += 1
             vehicle_data = {
@@ -299,8 +286,8 @@ def track_vehicles_with_line_crossing(detections, frame_count):
     return current_vehicles
 
 frame_count = 0
-show_zone_lines = False  # Toggle with 'z' key
-show_detection_line = True  # Toggle with 'l' key
+show_zone_lines = False  
+show_detection_line = True  
 
 while True:
     ret, frame = cap.read()
@@ -314,7 +301,7 @@ while True:
     if show_detection_line:
         draw_detection_line(frame, detection_line, show_line=True)
     
-    # Draw zone boundaries if enabled
+    # Draw zone boundaries 
     if show_zone_lines:
         draw_zone_boundaries(frame, zones, show_lines=True)
     
@@ -337,7 +324,6 @@ while True:
     # Track vehicles with line crossing
     current_vehicles = track_vehicles_with_line_crossing(current_detections, frame_count)
     
-    # Draw detections
     for detection in current_detections:
         x1, y1, x2, y2, confidence, class_name = detection
         center_x = (x1 + x2) // 2
@@ -354,7 +340,6 @@ while True:
         }
         color = vehicle_colors.get(class_name, (255, 255, 255))
         
-        # Draw bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
         
         # Label
@@ -366,7 +351,6 @@ while True:
         # Center point
         cv2.circle(frame, (center_x, center_y), 2, zone_color, -1)
     
-    # Count vehicles that crossed the line
     for vehicle_id, vehicle_data in current_vehicles.items():
         if vehicle_data.get('line_crossed', False) and not vehicle_data.get('counted', False):
             zone_counts[vehicle_data['zone']][vehicle_data['class']] += 1
@@ -389,12 +373,12 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
-    elif key == ord(' '):  # Pause
+    elif key == ord(' '): 
         cv2.waitKey(0)
-    elif key == ord('z'):  # Toggle zone lines
+    elif key == ord('z'):  
         show_zone_lines = not show_zone_lines
         print(f"Zone boundaries: {'ON' if show_zone_lines else 'OFF'}")
-    elif key == ord('l'):  # Toggle detection line
+    elif key == ord('l'): 
         show_detection_line = not show_detection_line
         print(f"Detection line: {'ON' if show_detection_line else 'OFF'}")
     elif key == ord('s'):  # Save statistics
@@ -414,7 +398,6 @@ while True:
         
         print(f"Statistics saved to {filename}")
 
-# Cleanup
 cap.release()
 cv2.destroyAllWindows()
 
