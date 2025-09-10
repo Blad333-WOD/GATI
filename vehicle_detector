@@ -1,0 +1,410 @@
+# Install required packages first:
+# pip install ultralytics opencv-python numpy
+
+from ultralytics import YOLO
+import cv2
+import math
+import numpy as np
+from collections import defaultdict
+import csv
+from datetime import datetime
+
+model = YOLO('yolov8s.pt')
+
+vehicle_classes = ['car', 'truck', 'bus', 'motorbike', 'bicycle']
+
+video_path = r'4 Corners Camera.mp4'
+
+cap = cv2.VideoCapture(video_path)
+
+# Check if video opened successfully
+if not cap.isOpened():
+    print(f"Error: Could not open video file at {video_path}")
+    print("Please check the file path and ensure the file exists")
+    exit()
+
+# Get video properties
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+print(f"Video loaded successfully!")
+print(f"Resolution: {width}x{height}")
+print(f"FPS: {fps}")
+print(f"Total frames: {total_frames}")
+
+# Detection line
+def define_detection_line(width, height):
+    
+    line_y = int(height * 0.32)  
+    return {
+        'start': (0, line_y),
+        'end': (width, line_y),
+        'y_position': line_y,
+        'tolerance': 30  
+    }
+
+# intersection zones 
+def define_intersection_zones(width, height, detection_line):
+    line_y = detection_line['y_position']
+    
+    zones = {
+        'Lane 1 (North-Left)': {
+            'bounds': (0, 0, width * 0.3, line_y + 50),
+            'color': (255, 100, 100),  
+            'direction': 'Southbound'
+        },
+        'Lane 2 (North-Center)': {
+            'bounds': (width * 0.3, 0, width * 0.7, line_y + 50),
+            'color': (255, 255, 100),  
+            'direction': 'Southbound'
+        },
+        'Lane 3 (North-Right)': {
+            'bounds': (width * 0.7, 0, width, line_y + 50),
+            'color': (100, 255, 100), 
+            'direction': 'Southbound'
+        },
+        'Lane 4 (Other)': {
+            'bounds': (0, line_y + 50, width, height),
+            'color': (100, 100, 255), 
+            'direction': 'Various'
+        }
+    }
+    return zones
+
+# Initialize detection line and zones
+detection_line = define_detection_line(width, height)
+zones = define_intersection_zones(width, height, detection_line)
+
+# Vehicle counting system
+zone_counts = defaultdict(lambda: defaultdict(int))
+total_vehicle_count = defaultdict(int)
+lane_totals = {'Lane 1 (North-Left)': 0, 'Lane 2 (North-Center)': 0, 'Lane 3 (North-Right)': 0, 'Lane 4 (Other)': 0}
+
+# Vehicle tracking with line crossing detection
+tracked_vehicles = {}
+next_vehicle_id = 0
+
+def has_crossed_line(prev_y, curr_y, line_y, tolerance):
+    """Check if vehicle has crossed the detection line"""
+    # Check if vehicle moved from above the line to below (or within tolerance)
+    return prev_y < (line_y - tolerance) and curr_y >= (line_y - tolerance)
+
+def get_vehicle_zone(center_x, center_y, zones):
+    """Determine which zone a vehicle is in"""
+    for zone_name, zone_info in zones.items():
+        x1, y1, x2, y2 = zone_info['bounds']
+        if x1 <= center_x <= x2 and y1 <= center_y <= y2:
+            return zone_name
+    return 'Lane 4 (Other)'
+
+def draw_dashed_line(frame, start_point, end_point, color, thickness=1, dash_length=10):
+    
+    x1, y1 = start_point
+    x2, y2 = end_point
+    
+    line_length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    if line_length == 0:
+        return
+        
+    # Unit vector
+    dx = (x2 - x1) / line_length
+    dy = (y2 - y1) / line_length
+    
+    current_pos = 0
+    while current_pos < line_length:
+        # Start of dash
+        start_x = int(x1 + dx * current_pos)
+        start_y = int(y1 + dy * current_pos)
+        
+        end_pos = min(current_pos + dash_length, line_length)
+        end_x = int(x1 + dx * end_pos)
+        end_y = int(y1 + dy * end_pos)
+        
+        # Draw dash
+        cv2.line(frame, (start_x, start_y), (end_x, end_y), color, thickness)
+        
+        # Move to next dash (skip gap)
+        current_pos += dash_length * 2
+
+def draw_detection_line(frame, detection_line, show_line=True):
+    
+    if show_line:
+        start_point = detection_line['start']
+        end_point = detection_line['end']
+        
+        
+        cv2.line(frame, start_point, end_point, (128, 0, 128), 4)
+        
+        
+        tolerance = detection_line['tolerance']
+        line_y = detection_line['y_position']
+        
+        draw_dashed_line(frame, (0, line_y - tolerance), (width, line_y - tolerance), (128, 0, 128), 1)
+        draw_dashed_line(frame, (0, line_y + tolerance), (width, line_y + tolerance), (128, 0, 128), 1)
+        
+        # Add detection line label
+        cv2.putText(frame, "Detection Line", (10, line_y - 10), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (128, 0, 128), 2)
+
+def draw_zone_boundaries(frame, zones, show_lines=False):
+    
+    if show_lines:
+        for zone_name, zone_info in zones.items():
+            x1, y1, x2, y2 = zone_info['bounds']
+            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), 
+                         zone_info['color'], 2)
+            
+            # Add zone labels
+            label_x = int((x1 + x2) / 2) - 40
+            label_y = int((y1 + y2) / 2)
+            zone_label = zone_name.split('(')[1].replace(')', '') if '(' in zone_name else zone_name
+            cv2.putText(frame, zone_label, (label_x, label_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, zone_info['color'], 2)
+
+def draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_totals, 
+                           frame_count, total_frames, active_vehicles):
+    
+    
+    info_bg = np.zeros((80, frame.shape[1], 3), dtype=np.uint8)
+    info_bg[:] = (0, 0, 0)  
+    
+    # Frame info
+    frame_text = f"Frame: {frame_count:,}/{total_frames:,} | Active Vehicles: {active_vehicles}"
+    cv2.putText(info_bg, frame_text, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+    
+    total_all = sum(total_vehicle_count.values())
+    total_text = f"Total Detected: {total_all}"
+    cv2.putText(info_bg, total_text, (10, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+    
+    lane_text = f"Lane 1: {lane_totals['Lane 1 (North-Left)']} | Lane 2: {lane_totals['Lane 2 (North-Center)']} | Lane 3: {lane_totals['Lane 3 (North-Right)']} | Other: {lane_totals['Lane 4 (Other)']}"
+    cv2.putText(info_bg, lane_text, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 1)
+    
+    frame[0:80] = cv2.addWeighted(frame[0:80], 0.7, info_bg, 0.3, 0)
+    
+    # Compact statistics panel (right side)
+    panel_width = 280
+    panel_height = 180
+    start_x = frame.shape[1] - panel_width - 10
+    start_y = 90
+    
+    
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (start_x, start_y), 
+                 (start_x + panel_width, start_y + panel_height), (0, 0, 0), -1)
+    cv2.rectangle(overlay, (start_x, start_y), 
+                 (start_x + panel_width, start_y + panel_height), (255, 255, 255), 2)
+    frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
+    
+    
+    cv2.putText(frame, "Lane Details", (start_x + 10, start_y + 20), 
+               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+    
+    
+    y_pos = start_y + 40
+    for zone_name, zone_info in zones.items():
+        zone_total = sum(zone_counts[zone_name].values())
+        text = f"{zone_name}: {zone_total}"
+        cv2.putText(frame, text, (start_x + 10, y_pos), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.45, zone_info['color'], 1)
+        y_pos += 18
+    
+    # Vehicle type breakdown
+    y_pos += 10
+    cv2.putText(frame, "Vehicle Types:", (start_x + 10, y_pos), 
+               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    y_pos += 18
+    
+    for vehicle_type in ['car', 'truck', 'bus', 'motorbike', 'bicycle']:
+        count = total_vehicle_count[vehicle_type]
+        if count > 0:
+            text = f"  {vehicle_type.title()}: {count}"
+            cv2.putText(frame, text, (start_x + 10, y_pos), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
+            y_pos += 16
+
+def track_vehicles_with_line_crossing(detections, frame_count):
+    
+    global next_vehicle_id, tracked_vehicles
+    
+    current_vehicles = {}
+    line_y = detection_line['y_position']
+    tolerance = detection_line['tolerance']
+    
+    for detection in detections:
+        x1, y1, x2, y2, confidence, class_name = detection
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        
+        # Find closest existing vehicle
+        min_distance = float('inf')
+        closest_id = None
+        
+        for vehicle_id, vehicle_data in tracked_vehicles.items():
+            distance = math.sqrt((center_x - vehicle_data['x'])**2 + 
+                               (center_y - vehicle_data['y'])**2)
+            if distance < min_distance and distance < 100:
+                min_distance = distance
+                closest_id = vehicle_id
+        
+        if closest_id is not None:
+            
+            prev_y = tracked_vehicles[closest_id]['y']
+            tracked_vehicles[closest_id].update({
+                'x': center_x, 'y': center_y, 'last_seen': frame_count,
+                'class': class_name, 'zone': get_vehicle_zone(center_x, center_y, zones)
+            })
+            
+            
+            if not tracked_vehicles[closest_id].get('counted', False):
+                if has_crossed_line(prev_y, center_y, line_y, tolerance):
+                    tracked_vehicles[closest_id]['line_crossed'] = True
+                    
+            current_vehicles[closest_id] = tracked_vehicles[closest_id]
+        else:
+            
+            vehicle_id = next_vehicle_id
+            next_vehicle_id += 1
+            vehicle_data = {
+                'x': center_x, 'y': center_y, 'last_seen': frame_count,
+                'class': class_name, 'zone': get_vehicle_zone(center_x, center_y, zones),
+                'counted': False, 'line_crossed': False
+            }
+            tracked_vehicles[vehicle_id] = vehicle_data
+            current_vehicles[vehicle_id] = vehicle_data
+    
+    # Remove old vehicles
+    vehicles_to_remove = []
+    for vehicle_id, vehicle_data in tracked_vehicles.items():
+        if frame_count - vehicle_data['last_seen'] > 30:
+            vehicles_to_remove.append(vehicle_id)
+    
+    for vehicle_id in vehicles_to_remove:
+        del tracked_vehicles[vehicle_id]
+    
+    return current_vehicles
+
+frame_count = 0
+show_zone_lines = False  
+show_detection_line = True  
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("End of video or cannot read frame")
+        break
+    
+    frame_count += 1
+    
+    # Draw detection line
+    if show_detection_line:
+        draw_detection_line(frame, detection_line, show_line=True)
+    
+    # Draw zone boundaries 
+    if show_zone_lines:
+        draw_zone_boundaries(frame, zones, show_lines=True)
+    
+    # Run YOLOv8 detection
+    results = model(frame, stream=True)
+    
+    # Process detection results
+    current_detections = []
+    for result in results:
+        if result.boxes is not None:
+            for box in result.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                confidence = math.ceil((box.conf[0] * 100)) / 100
+                class_id = int(box.cls[0])
+                class_name = model.names[class_id]
+                
+                if class_name in vehicle_classes and confidence > 0.3:
+                    current_detections.append((x1, y1, x2, y2, confidence, class_name))
+    
+    # Track vehicles with line crossing
+    current_vehicles = track_vehicles_with_line_crossing(current_detections, frame_count)
+    
+    for detection in current_detections:
+        x1, y1, x2, y2, confidence, class_name = detection
+        center_x = (x1 + x2) // 2
+        center_y = (y1 + y2) // 2
+        
+        # Determine zone
+        zone_name = get_vehicle_zone(center_x, center_y, zones)
+        zone_color = zones.get(zone_name, {}).get('color', (255, 255, 255))
+        
+        # Vehicle colors
+        vehicle_colors = {
+            'car': (0, 255, 0), 'truck': (0, 0, 255), 'bus': (255, 0, 0),
+            'motorbike': (255, 255, 0), 'bicycle': (255, 0, 255)
+        }
+        color = vehicle_colors.get(class_name, (255, 255, 255))
+        
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        
+        # Label
+        label = f'{class_name}: {confidence:.2f}'
+        (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+        cv2.rectangle(frame, (x1, y1 - text_height - 8), (x1 + text_width + 4, y1), color, -1)
+        cv2.putText(frame, label, (x1 + 2, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        # Center point
+        cv2.circle(frame, (center_x, center_y), 2, zone_color, -1)
+    
+    for vehicle_id, vehicle_data in current_vehicles.items():
+        if vehicle_data.get('line_crossed', False) and not vehicle_data.get('counted', False):
+            zone_counts[vehicle_data['zone']][vehicle_data['class']] += 1
+            total_vehicle_count[vehicle_data['class']] += 1
+            
+            # Update lane totals
+            if vehicle_data['zone'] in lane_totals:
+                lane_totals[vehicle_data['zone']] += 1
+            
+            vehicle_data['counted'] = True
+    
+    # Draw enhanced statistics
+    draw_enhanced_statistics(frame, zone_counts, total_vehicle_count, lane_totals,
+                           frame_count, total_frames, len(current_vehicles))
+    
+    # Display the frame
+    cv2.imshow('Traffic Analysis - 4-Way Intersection', frame)
+    
+    # Controls
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        break
+    elif key == ord(' '): 
+        cv2.waitKey(0)
+    elif key == ord('z'):  
+        show_zone_lines = not show_zone_lines
+        print(f"Zone boundaries: {'ON' if show_zone_lines else 'OFF'}")
+    elif key == ord('l'): 
+        show_detection_line = not show_detection_line
+        print(f"Detection line: {'ON' if show_detection_line else 'OFF'}")
+    elif key == ord('s'):  # Save statistics
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"intersection_line_crossing_{timestamp}.csv"
+        
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Traffic Analysis - Line Crossing Detection'])
+            writer.writerow(['Lane', 'Total Count', 'Vehicle Breakdown'])
+            for lane_name, total_count in lane_totals.items():
+                breakdown = []
+                for vehicle_type, count in zone_counts[lane_name].items():
+                    if count > 0:
+                        breakdown.append(f"{vehicle_type}: {count}")
+                writer.writerow([lane_name, total_count, "; ".join(breakdown)])
+        
+        print(f"Statistics saved to {filename}")
+
+cap.release()
+cv2.destroyAllWindows()
+
+print("\n=== FINAL STATISTICS ===")
+print("Vehicles that crossed the detection line:")
+for lane_name, total_count in lane_totals.items():
+    print(f"{lane_name}: {total_count} vehicles")
+
+print(f"\nTotal vehicles counted: {sum(lane_totals.values())}")
+print("Analysis complete!")
