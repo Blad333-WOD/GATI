@@ -6,9 +6,8 @@ import { usePathname } from 'next/navigation'; // <-- We import a hook to read t
 
 const Header: React.FC = () => {
   const { isLoggedIn, user, logout } = useAuth();
-  const pathname = usePathname(); // <-- This gets the current path, e.g., "/" or "/stats"
+  const pathname = usePathname(); // <-- This hook gives us the current URL path
 
-  // --- THIS IS THE FIX ---
   // The header will now hide itself if:
   // 1. The user is not logged in (to hide it on the login page).
   // 2. The user is on the "/stats" page (to prevent the double header).
@@ -16,7 +15,7 @@ const Header: React.FC = () => {
     return null;
   }
 
-  // If neither of the above is true, we show the beautiful floating header.
+  // If neither of the above is true, show the floating header.
   return (
     <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
       <nav className="flex items-center gap-x-6 bg-white/80 backdrop-blur-md shadow-lg rounded-full border border-gray-200/80 px-6 py-3">

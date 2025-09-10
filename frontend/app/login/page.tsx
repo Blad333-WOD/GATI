@@ -9,7 +9,7 @@ export default function Login() {
   const { isLoggedIn } = useAuth();
   const router = useRouter();
 
-  // --- THIS IS THE FIX ---
+
   // This is the security guard for the login page.
   useEffect(() => {
     // If the user is already logged in, it sends them to the home page.

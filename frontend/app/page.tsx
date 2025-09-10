@@ -35,8 +35,7 @@ export default function Home() {
   return (
     // This <main> tag acts as the page's background and centers its content.
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
-      {/* This <div> is the visible container that holds your map. */}
-      {/* It has the rounded corners, shadow, and specific size from our original design. */}
+      {/* This <div> is the visible container that holds the map. */}
       <div className="h-[70vh] w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden">
         <Map />
       </div>

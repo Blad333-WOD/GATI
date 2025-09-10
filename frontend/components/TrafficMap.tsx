@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react'; // Import useState to manage which modal is open
+import { useState } from 'react';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L, { LatLngExpression, LatLngBoundsExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
-// We now import our new SimulationModal component.
 import SimulationModal from './SimulationModal';
 
 // --- 1. Define a TypeScript interface for our signal data ---
@@ -17,7 +15,7 @@ interface TrafficSignal {
   videoUrl: string; // A property to hold the path to the video file.
 }
 
-// --- 2. Data for Your Traffic Signals ---
+// --- 2. Data for Traffic Signals ---
 // We declare that this array will contain objects matching the TrafficSignal interface.
 const trafficSignals: TrafficSignal[] = [
   { id: 1, position: [19.059381, 72.836801], name: "Shri Narayan Daji Salian Chowk Signal", videoUrl: "narayan-chowk-sim.mp4" }, 
@@ -27,7 +25,7 @@ const trafficSignals: TrafficSignal[] = [
 ];
 
 // --- 3. Custom Icon for the Traffic Signal ---
-// We use L.divIcon to create a custom icon using an emoji.
+// L.divIcon to create a custom icon using an emoji.
 
 // Control the traffic signal size here.
 // Simply change this number to make the icons bigger or smaller.
@@ -49,8 +47,6 @@ const TrafficMap: React.FC = () => {
   const mapBounds: LatLngBoundsExpression = [ [19.042575, 72.819271], [19.067235, 72.843627] ];
 
   return (
-    // We wrap the component in a fragment (<>) to allow the modal to be a sibling
-    // of the map container, which is best for styling overlays.
     <>
       <MapContainer 
         center={mapCenter} 
@@ -91,7 +87,7 @@ const TrafficMap: React.FC = () => {
           // which guarantees the video restarts from the beginning every time.
           key={selectedSignal.id}
           signal={selectedSignal} 
-          // We pass a function that allows the modal to set our state back to null, closing itself.
+          // pass a function that allows the modal to set our state back to null, closing itself.
           onClose={() => setSelectedSignal(null)} 
         />
       )}

@@ -2,7 +2,7 @@
 // It's designed to be used inside the map's popup.
 
 interface SimulationPlayerProps {
-  videoSrc: string; // The path to the video file, e.g., "/test simulation.mp4"
+  videoSrc: string; // The path to the video file
 }
 
 const SimulationPlayer: React.FC<SimulationPlayerProps> = ({ videoSrc }) => {

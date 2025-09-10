@@ -18,7 +18,6 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-# --- CORRECTED FUNCTION ---
 # This now directly queries the database, which is the correct way
 # to do this and breaks the circular dependency with crud.py.
 def authenticate_user(db: Session, police_id: str, password: str):

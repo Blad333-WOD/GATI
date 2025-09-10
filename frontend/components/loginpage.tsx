@@ -89,7 +89,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* --- THIS IS THE ADDED CODE --- */}
             {/* This block will only appear if there is a loginError */}
             {loginError && (
               <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-center">
